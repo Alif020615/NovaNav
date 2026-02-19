@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NovaNav - Live Navigation</title>
+    
+    <!-- External Assets -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+    <style>
+        :root {
+            --accent-blue: #00e0ff;
+            --deep-bg: #0f172a;
+            --glass: rgba(15, 23, 42, 0.85);
+            --danger: #ff4757;
+            --warning: #ffa502;
+            --success: #2ed573;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            font-family: 'Outfit', sans-serif;
+            background: var(--deep-bg);
+            color: white;
+            overflow: hidden;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+            z-index: 1;
+        }
+
+        .glass-panel {
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .search-container {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 500px;
+            z-index: 1000;
+        }
+
+        .top-nav {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            margin-bottom: 8px;
+        }
+
+        .search-box {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 16px;
+            padding-left: 15px;
+            outline: none;
+        }
+
+        #search-results {
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .result-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .result-item:hover { background: rgba(255,255,255,0.1); }
+        .result-item .title { font-weight: 600; font-size: 14px; }
+        .result-item .subtitle { font-size: 11px; opacity: 0.6; }
+
+        .xp-badge {
+            position: absolute;
+            top: 85px;
+            right: 20px;
+            padding: 8px 15px;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            color: #ffd32a;
+        }
+
+        .news-ticker {
+            position: absolute;
+            top: 130px;
+            left: 20px;
+            width: 200px;
+            z-index: 1000;
+            padding: 10px;
+            font-size: 12px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .news-item {
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .news-tag {
+            font-size: 10px;
+            text-transform: uppercase;
+            padding: 2px 5px;
+            border-radius: 4px;
+            margin-right: 5px;
+        }
+
+        .bottom-ui {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 1001;
+            padding: 25px;
+            border-radius: 30px 30px 0 0;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .drag-bar {
+            width: 40px;
+            height: 4px;
+            background: rgba(255,255,255,0.2);
+            margin: -10px auto 20px auto;
+            border-radius: 2px;
+        }
+
+        .main-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .stat-group h2 { margin: 0; color: var(--accent-blue); font-size: 24px; }
+        .stat-group p { margin: 0; font-size: 12px; opacity: 0.6; }
+
+        .btn-action {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 15px;
+            background: var(--accent-blue);
+            color: var(--deep-bg);
+            font-weight: 800;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .btn-report {
+            position: absolute;
+            right: 25px;
+            top: -35px;
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: #fff;
+            color: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+            cursor: pointer;
+            z-index: 1002;
+        }
+
+        .report-grid {
+            display: none;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            padding-top: 20px;
+        }
+
+        .report-option {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        .icon-box {
+            width: 55px;
+            height: 55px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            color: white;
+        }
+
+        .nav-banner {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 500px;
+            padding: 15px;
+            display: none;
+            align-items: center;
+            gap: 20px;
+            z-index: 1002;
+            background: #00e0ff;
+            color: #0f172a;
+        }
+
+        .leaflet-routing-container { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="nav-banner glass-panel" id="nav-banner">
+        <i class="fas fa-arrow-turn-up"></i>
+        <div>
+            <div style="font-size: 10px; font-weight: bold; text-transform: uppercase;">Directing to Destination</div>
+            <div id="next-maneuver" style="font-size: 18px; font-weight: 800;">Continue on main road</div>
+            <div id="next-dist-text" style="font-size: 13px; opacity: 0.8;">Recalculating...</div>
+        </div>
+    </div>
+
+    <div class="search-container">
+        <div class="top-nav glass-panel" id="top-ui">
+            <i class="fas fa-search" style="color: var(--accent-blue);"></i>
+            <input type="text" class="search-box" id="search-input" placeholder="Search for a place...">
+            <div id="loading-spinner" style="display: none;"><i class="fas fa-circle-notch fa-spin"></i></div>
+        </div>
+        <div id="search-results" class="glass-panel"></div>
+    </div>
+
+    <div class="xp-badge glass-panel">
+        <i class="fas fa-crown"></i>
+        <span><span id="xp-count">0</span> XP</span>
+    </div>
+
+    <div class="news-ticker glass-panel" id="news-feed">
+        <div style="font-weight: 800; margin-bottom: 10px; border-bottom: 1px solid var(--accent-blue);">LIVE TRAFFIC</div>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="bottom-ui glass-panel" id="bottom-panel">
+        <div class="drag-bar"></div>
+        <div class="btn-report" id="report-trigger"><i class="fas fa-bullhorn"></i></div>
+        <div id="trip-stats">
+            <div class="main-stats">
+                <div class="stat-group"><h2 id="eta-text">--:--</h2><p>ARRIVAL</p></div>
+                <div class="stat-group"><h2 id="duration-text">-- min</h2><p>DURATION</p></div>
+                <div class="stat-group"><h2 id="dist-text">-- mi</h2><p>DISTANCE</p></div>
+            </div>
+            <button class="btn-action" id="start-btn" disabled>SELECT DESTINATION</button>
+        </div>
+        <div class="report-grid" id="report-grid">
+            <div class="report-option" onclick="sendReport('Traffic', 'var(--danger)', 'fa-car')">
+                <div class="icon-box" style="background: var(--danger);"><i class="fas fa-car"></i></div>
+                <span>Jam</span>
+            </div>
+            <div class="report-option" onclick="sendReport('Police', '#3742fa', 'fa-shield-halved')">
+                <div class="icon-box" style="background: #3742fa;"><i class="fas fa-shield-halved"></i></div>
+                <span>Police</span>
+            </div>
+            <div class="report-option" onclick="sendReport('Hazard', 'var(--warning)', 'fa-triangle-exclamation')">
+                <div class="icon-box" style="background: var(--warning);"><i class="fas fa-triangle-exclamation"></i></div>
+                <span>Hazard</span>
+            </div>
+            <div class="report-option" onclick="sendReport('Crash', '#e84118', 'fa-burst')">
+                <div class="icon-box" style="background: #e84118;"><i class="fas fa-burst"></i></div>
+                <span>Crash</span>
+            </div>
+            <div class="report-option" onclick="sendReport('Speed Cam', '#44bd32', 'fa-camera')">
+                <div class="icon-box" style="background: #44bd32;"><i class="fas fa-camera"></i></div>
+                <span>Camera</span>
+            </div>
+            <div class="report-option" id="close-reports">
+                <div class="icon-box" style="background: #7f8c8d;"><i class="fas fa-xmark"></i></div>
+                <span>Cancel</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
